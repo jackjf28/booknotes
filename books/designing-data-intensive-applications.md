@@ -2,3 +2,8 @@
 
 - [Part 1: Foundations of Data Systems](#part-1)
     - [Reliable, Scalable, and Maintainable Applications](#reliable-scalable-and-maintainable-applications)
+        - [Reliability](#reliability)
+        - [Scalability](#scalability)
+        - [Maintianability](#maintainability)
+
+## Reliable, Scalable, and Maintainable Applications

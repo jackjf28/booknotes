@@ -29,7 +29,7 @@ software systems.
 
 ### Reliability
 
-_Reliability_ means making systems work correctly even when faults occur.
+> _Reliability_ means making systems work correctly even when faults occur.
 Faults can be categorized being in **hardware**, **software**, or *humans**.
 Fault-tolerance techniques can hide certain types of faults from the end user.
 
@@ -68,7 +68,7 @@ be made more reliable by applying the following:
 
 ### Scalability
 
-_Scalability_ means having strategies for keeping performance good when under load.
+> _Scalability_ means having strategies for keeping performance good when under load.
 
 It is also crucial to ask questions like "If the system grows in a particular way, 
 what are our options for coping with the growth?"
@@ -162,4 +162,19 @@ backend calls, such that a higher proportion of end-user requests end up being s
 How do we maintain good performance even when our load parameters increase by some
 amount?
 
-### Maintainibility
+* _Scaling up_: Moving to a more powerful machine.
+* _Scaling out_: distributing the load across multiple smaller machines.  Also
+known as a _shared-nothing architecture_.
+
+The choices on how to design the architecture of a system is multi-faceted.  There's
+no such thing as a generic, one-size-fits-all scalable architecture.
+
+Even though they are specific to a particular application, scalable architecutres are
+usually built from general-purpose buliding blocks, arranged in familiar patterns.
+
+### Maintainability
+
+> _Maintainability_ is about making life better for the engineering and operations
+teams who need to work with the system. Good abstractions can help reduce complexity
+and make the system easier to modify and adapt for new use-cases.
+

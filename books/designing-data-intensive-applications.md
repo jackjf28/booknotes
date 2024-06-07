@@ -5,6 +5,7 @@
         - [Reliability](#reliability)
         - [Scalability](#scalability)
         - [Maintianability](#maintainability)
+    - [Data Models and Query Languages](#data-models-and-query-languages)
 
 # Part 1.  Foundations of Data Systems
 
@@ -30,7 +31,7 @@ software systems.
 ### Reliability
 
 > _Reliability_ means making systems work correctly even when faults occur.
-Faults can be categorized being in **hardware**, **software**, or *humans**.
+Faults can be categorized being in **hardware**, **software**, or **humans**.
 Fault-tolerance techniques can hide certain types of faults from the end user.
 
 Expectations of reliable software:
@@ -177,4 +178,50 @@ usually built from general-purpose buliding blocks, arranged in familiar pattern
 > _Maintainability_ is about making life better for the engineering and operations
 teams who need to work with the system. Good abstractions can help reduce complexity
 and make the system easier to modify and adapt for new use-cases.
+
+Software should be designed in such a way that it minimizes pain during maintenance.
+There are three design principles for software systems to pay attention to
+* **Operability**. Make it easy for operations teams to keep the system running 
+smoothly.
+* **Simplicity**. Make systems easy to understand by removing unecessary complexity.
+* **Evolvability**. Make it easy for the system to be changed in the future.
+
+#### Operability: Making Life Easy for Operations
+
+A good operations team is responsible for the following:
+* Monitoring system health and service restoration if its in a bad state
+* Tracking down the cause of problems, i.e. system failures
+* Keeping software and platforms up to date
+* Understand dependencies between systems
+* Anticipate future problems and prevent them before they occur
+
+#### Simplicity: Managing Complexity
+
+There are various symptoms of complexity, including:
+* Explosion of the statue space
+* Tight coupling of modules
+* Tangled dependencies 
+
+Making a system simpler does not necesarily mean reducing its functionality; it
+can also mean removing _accidental_ complexity.
+
+> Complexity can be defined as _accidental_ when it is not inherent in the problem
+that to software solves.
+
+One of the best tools we have for removing accidental complexity is _abstraction_.
+A good abstraction can hide a great deal of implementation detail behind a clean,
+easy to understand facade.
+
+#### Evolvability: Making Change Easy
+
+In terms of organization processes, _Agile_ working patterns provide a framework for
+adapting to change. 
+
+The easy with which you can modify a data system is closely linked to its simplicity
+and abstractions. Simple and easy to understand systems are typically easier to 
+modify.
+
+## Data Models and Query Languages
+
+
 

@@ -6,6 +6,7 @@
         - [Scalability](#scalability)
         - [Maintianability](#maintainability)
     - [Data Models and Query Languages](#data-models-and-query-languages)
+        - [Relational Model Versus Document Model](#relational-model-versus-document-model)
 
 # Part 1.  Foundations of Data Systems
 
@@ -223,5 +224,137 @@ modify.
 
 ## Data Models and Query Languages
 
+Data models are one of the most important parts of developing software.  
+They affect how software is written as well as how we think about the problem
+that we are solving.
 
+### Relational Model Versus Document Model
 
+One of the best known data modesl today is SQL, where data is organized into
+*relations* (tables in SQL), where each relation is an unordered collection of 
+*tuples*.
+
+#### The Birth of NoSQL
+
+The term 'NoSQL' doesn't refer to any specific technology, but there are several 
+reasons as to why NoSQL databases have seen wide adoption:
+* Scalability greater than relational databases, large datasets and high write throughput.
+* Preference of open source technology over commercial
+* Specialized query operations
+* Less restrictive than relational schema
+
+_Polyglot persistence_. Relational databses will continued to be used alongside
+a broad variety of nonrelational datastores.
+
+#### The Object-Relational Mismatch
+
+Due to many applications being developed using object-oriented programming
+languages, there is an awkward translation layer that is required when using the
+SQL data model between the application code and the database model of tables,
+rows, and columns. This disconnect is somethines called an _impedence mismatch_.
+
+Object-relational mapping frameworks (ActiveRecord, Hibernate) reduce boilerplate
+code but cannot completely hide the difference between the two models.
+
+One-to-many relationships can be described in a resume example: people may have
+more than one job in their career, and people may have varying numbers of education.
+This can be represented in the following ways
+* Put positions and education in separate tables and reference via foreign key to
+the **user** table
+* Structured data types and XML data; allowing multi-valued data stored in a single
+row.
+* Encode jobs and education as JSON or XML document, and store on a text column.
+
+Data structures like resumes can also be represented with a self-contained
+*document*, like encoding in JSON. This can reduce impedance mismatch between
+application code and the storage layer because of the lack of a schema.
+
+The JSON/document model also has better _locality_, meaning that instead of 
+performing multiple queries to fetch data, all of the data is in one place.
+
+One-to-many relationships tend to imply a tree structure.
+
+#### Many-to-One and Many-to-Many Relationships
+
+It can be advantageous to have standardized lists for properties like geographic
+regions and industries:
+* Consistent style/spelling
+* Avoids ambiguity
+* Ease of updating as a value is stored in one place
+* Localization support, region/industry can be displayed in viewer's language
+* Better search
+
+Using IDs is advantagous as they don't have any meaning to humans. Therefore,
+it never needs to change even if the information it references changes. If 
+the information that changes is duplicated, it needs to be updated everywhere 
+it is used.  Removing duplication is the key idea behind _normalization_ in databases.
+
+_Normalizing_ data requires _many-to-one_ relationships, which is difficult to
+fit into the document model. But, fits very well with the relational model - it
+is normal to refer to rows in other tables by ID, because joins are easy.
+
+**Many-to-Many relationships**. Many records in one table relate to many records 
+in another table.
+Can be described as many users on LinkedIn can be employed by an organization, 
+and an organization can have many employees
+
+#### Are Document Databases Repeating History?
+
+The post popular database for business data processing in the 1970s was IBM's 
+Information Management System (IMS).
+
+IMS used a _hierarchical model_, representing all data as a tree of records nested
+within records. It was good for one-to-many relationships, but many-to-many was
+difficult and it did not support joins
+
+##### The network model
+
+Standardized by a committee called the Conference on Data Systems Languages
+(CODASYL); also known as the _CODASYL model_.
+
+Generalized the hierarchical model, in the tree structure - every record could
+have multiple parents.  This allowed many-to-one and many-to-many relationships
+to be modeled
+
+The links between records were similar to pointers in a programming language. 
+The only way of getting a record was following a path form the root record called
+an _access path_.
+
+A query in CODASYL was performed via moving a cursor through the database by 
+iterating over lists of records. This was difficult to make changes to and
+if you didn't have the path you wanted, it was difficult to find the record.
+
+##### The relational model
+
+Layed out all data in the open: a relation (table) is a collection of tuples.
+You can read any and all rows in a table, selecting those that match an 
+arbitrary condition.
+
+Query optimizers decide which parts of the query to execute in which order, 
+and what indexes to use. 
+
+The relational model made it much easer to add new features to applications.
+
+##### Comparison to document databases
+
+Document databases reverted back to the hierarchical model in one way, storing
+nested records within a parent record rather than a separate table.
+
+When representing one-to-many and many-to-many relationships, relational and
+document databases both use unique identifiers for a related item.  These
+are _foreign keys_ in relational model and _document references_ in the 
+document model.
+
+#### Relational Versus Document Databases Today
+
+The main argument for document models are because of their schema flexibility,
+better performance (locality), and similarity to data structures used
+by the appliation. The relational model provides better join support, and
+many-to-one and many-to-many relationships.
+
+##### Which data model leads to simler application code?
+
+If using document like structures (i.e. tree of one-to-many relationships), then
+the document model is better.  The relational technique of _shredding_ - splitting
+a document like structure into multipole tables can lead to cumbersome schemas
+and convoluted application code.

@@ -7,6 +7,7 @@
         - [Maintianability](#maintainability)
     - [Data Models and Query Languages](#data-models-and-query-languages)
         - [Relational Model Versus Document Model](#relational-model-versus-document-model)
+        - [Query Languages for Data](#query-languages-for-data)
 
 # Part 1.  Foundations of Data Systems
 
@@ -403,4 +404,59 @@ ALTER TABLE users ADD COLUMN first_name text;
 UPDATE users SET first_name = split_part(name, ' ', 1);     -- PostgreSQL
 UPDATE users SET first_name = substring_index(name, ' ', 1);     -- MySQL
 ```
+
+Most RDBMSes run ALTER TABLE in a few milleseconds. MySQL is an exception as it
+copies the entire table on ALTER TABLE, which can result in minutes or hours of
+downtime on larger tables.
+
+Running UPDATE on any large table is likely to be slow on any database as each
+row needs to be rewritten.
+
+Schema-on-read can be advantageous if the items in the collection don't have 
+the same structure for some reason (heterogeneous data), because:
+* Many different types of objects
+* Data structure is determined by an external system that is subject to change
+
+##### Data locality for queries
+
+Documents are usually a continuous string - if your application often needs
+the entire document, then there is a performance advantage to this _storage locality_.
+
+It is generally recommended to keep documents small because:
+* Databases load the entire document even if you only need a small portion.
+* Updates to a document usually require the entire document to be rewritten.
+
+##### Convergence of document and relational databases
+
+If a database is able to handle document-like data and perform relational 
+queries on it, applications can use the combination of features that best fits 
+their needs.
+
+A hybrid of relational and document models is a good route for databases to 
+take in the future.
+
+### Query Languages for Data
+
+SQL is a _declarative_ query language, where as IMS and CODASYL queried the 
+data base using _imperative_ code.
+
+Many commonly used programming languages are _imperative_:
+
+```javascript
+function getSharks() {
+    var sharks = [];
+    for (var i = 0; i < animals.length; i++) {
+        if (animals[i].family === "Sharks") {
+            sharks.push(animals[i]);
+        }
+    }
+    return sharks;
+}
+```
+
+Here is the same query in SQL:
+```sql
+SELECT * FROM animals WHERE family = 'Sharks';
+```
+
 

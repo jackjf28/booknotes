@@ -356,5 +356,51 @@ many-to-one and many-to-many relationships.
 
 If using document like structures (i.e. tree of one-to-many relationships), then
 the document model is better.  The relational technique of _shredding_ - splitting
-a document like structure into multipole tables can lead to cumbersome schemas
+a document like structure into multiple tables can lead to cumbersome schemas
 and convoluted application code.
+
+Limitations of the document model include not being able to directly reference
+nested items in a document, but this usually isn't a problem if documents
+aren't too deeply nested.
+
+Poor support for joins are another factor against using the document model - for
+example many-to-many relationships may never be needed in an analytics app that 
+records what events occur at which time.
+
+If many-to-many relationships are used, this can result in significantly more 
+complex application code and worse performanceif the document model is used.
+
+To summarize, for highly interconnected data, the document model is awkward,
+the relational model is acceptable, and graph models are the most natural.
+
+##### Schema flexibility in the document model
+
+Most document databases do not enforce a schema, which means arbitrary keys and 
+values can be added to a document.
+
+Document databases are considered _schema-on-read_.
+* **Schema-on-read**. The structure of the data is implicit, and only interpreted
+when the data is read.
+* **Schema-on-write**. The traditional approach of relational databases, where
+the schema is explicit and the database ensures all written data conforms to it.
+
+Schema-on-read is similar to dynamic (runtime) type checking in programming 
+languages, whereas schema-on-write is similar to static (compile-time) type
+checking.
+
+In a document database, you would just start writing new documents with a new 
+field and have code account for cases of old documents:
+```javascript
+if (user && user.name && !user.first_name) {
+    // Documents written before Dec 8, 2013 don't have first_name
+    user.first_name = user.name.split(" ")[0];
+}
+```
+
+On the other hand, a schema-on-write implementation performs a migration such as:
+```sql
+ALTER TABLE users ADD COLUMN first_name text;
+UPDATE users SET first_name = split_part(name, ' ', 1);     -- PostgreSQL
+UPDATE users SET first_name = substring_index(name, ' ', 1);     -- MySQL
+```
+

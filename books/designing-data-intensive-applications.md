@@ -459,4 +459,61 @@ Here is the same query in SQL:
 SELECT * FROM animals WHERE family = 'Sharks';
 ```
 
+An imperative language tells the computer to perform certain operations in a
+certain order.
 
+In a declarative query language, you just specify the pattern of the data you
+want - what conditions the results must meet, and how you want the data to be
+transformed - but not how to achieve that goal.  It is up to the database 
+system's query optimizer to decide which indexes and which join methods to use,
+and what order to execute the query in.
+
+Declarative languages lend themselves to parallel execution because they only
+specify the pattern of the results, not the algorithm that is used to determine 
+the results.
+
+#### Delcarative Queries on the Web
+
+CSS is considered a declarative styling in the web browser and is much better
+than manipulating styles imperatively in JavaScript.
+
+#### MapReduce Querying
+
+_MapReduce_ is a programming model for procesing large amounts of data in bulk
+across many machines.
+
+MapReduce is neither a declarative language or imperative query API, but 
+somewhere in between: the logic of the query is expressed with snippets of code,
+which are called repeatedly by the processing framework. It is based on the 
+**map** and **reduce** functions that exist in many functional programming
+languages.
+
+Here's an example where you add an observation record for every animal seen
+and you want to see how many sharks you have sighted per month:
+
+```postgresql
+SELECT date_truc('month', observation_timestamp) AS observation_month,
+       sum(num_animals) AS total_animals
+FROM observations
+WHERE family = 'Sharks'
+GROUP BY observation_month;
+```
+
+The same can be expressed with MongoDB's MapReduce feature:
+
+```javascript
+db.observations.mapReduce(
+    function map() {
+        var year = this.observationTimestamp.getFullYear();
+        var month = this.observationTimestamp.getMonth() + 1;
+        emit(year + "-" + month, this.numAnimals);
+    },
+    function reduce(key, values) {
+        return Array.sum(values);
+    },
+    {
+        query: { family: "Sharks" },
+        out: "monthlySharkReport"
+    }
+)
+```

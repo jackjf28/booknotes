@@ -644,16 +644,128 @@ RETURN person.name
 The above query can be read as:
 
 1. Find any vertex (call it `person`) that meets _both_ of the following conditions
-2. *`person` has an outgoing `BORN_IN` edge to some vertex. From that vertex, you
+2. `person` has an outgoing `BORN_IN` edge to some vertex. From that vertex, you
 can follow a chain of outgoing `WITHIN` edges until eventually you reach a vertex
 of type `Location`, whose name property is equal to "United States"
-3. *That same `person` vertex also has an outgoing `LIVES_IN`edge. Following 
+3. That same `person` vertex also has an outgoing `LIVES_IN`edge. Following 
 that edge, and then a chain of outgoing `WITHIN` edges, you eventually reach 
 a vertex of type `Location`, whose `name` property is equal to "Europe".
 4. For each such `person` vertex, return the `name` property.
 
-
-
 #### Graph Queries in SQL
+
+SQL _can_ be used to query graph data, but with some difficulty.  In a relational
+database, you usually know in advance which joins need to be queried.  In a graph
+query, you may need to traverse a variable number of edges before you find the 
+vertex that you're looking for - the number of joins is not fixed in advance.
+
+Variable-length traversal paths in a query can be expressed in SQL using something
+called _recursive common table expressions_ (the WITH RECURSIVE syntax). It is
+very lengthy and clumsy in comparison to the 4 lines of Cypher to do effectively
+the same thing.
+
 #### Triple-Stores and SPARQL
+
+Triple-stores and the property graph model are mostly equivalent, but a triple-store
+has all information stored in the form of a very simple three-part statement:
+(_subject, predicate, object)_. e.g. (_Jim, likes, bananas)_.
+
+The subject is equivalent to the vertex in a graph, object is one of two things:
+1. A value in a primitive datatype. (e.g. (_lucy, age, 33_) or vertex `lucy` with properties `{"age": 33}`)
+2. Another vertex in the graph. In this case, the predicate is an edge between 
+the two, where the subject is the tail vertex and the object is the head.
+
+Here is an example of triples in a format called _Turtle_:
+
+```turtle
+@prefix : <urn:example:>.
+_:lucy      a       :Person.
+_:lucy      :name   "Lucy".
+_:lucy      :bornIn _:idaho.
+_:idaho     a       :Location.
+_:idaho     :name   "Idaho".
+_:idaho     :type   "state".
+_:idaho     :within _:usa.
+.
+.
+.
+```
+
+##### The semantic web
+
+The idea that websites already publish information as txt and pictures for humans,
+so why don't they also poblish information as machine-readable data for computers to read?
+
+The _Resource Description Framework_ (RDF) was intended as a mechanism for 
+different websites to publish data in a consistent format, allowing data
+from different websites to be automatically combined into a _web of data_.
+
+##### The RDF data model
+
+The _Turtle_ language is a human-readable formate for RDF data.  RDF is sometimes
+written in XML as well.
+
+It is also designed for internet-wide data exchange
+
+##### The SPARQL query language
+
+_SPARQL Protocol and RDF Query Language_ (SPARQL) is a query language for 
+triple-stores using the RDF data model. Predates Cypher and Cypher's pattern
+matching is borrowed from SPARQL.
+
+The above Cypher query in SPARQL format:
+
+```sparql
+PREFIX: <urn:example>
+
+SELECT ?personName WHERE {
+    ?person :name ?personName.
+    ?person :bornIn  / :within* / :name "United States".
+    ?person :livesIn / :within* / :name "Europe".
+}
+```
+
 #### The Foundation: Datalog
+
+_Datalog_ is a much older language than SPARQL and Cypher, citing back to the
+1980s.
+
+Datalog's data model is similar to triple-store, but instead of (_subject, predicate, object_),
+we write it as _predicate(subject, object)_.
+
+```
+name(namerica, 'North America')
+type(namerica, continent)
+
+name(usa, 'United States')
+type(usa, country)
+within(usa, namerica)
+
+name(idaho, 'Idaho')
+type(idaho, state)
+within(idaho, usa)
+
+name(lucy, 'Lucy')
+born_in(lucy, idaho)
+```
+
+Example query from the BORN_IN/LIVES_IN Cypher query:
+```
+within_recursive(Location, Name) :- name(Location, Name).       /* Rule 1 */
+
+within_recursive(Location, Name) :- within(Location, Via),      /* Rule 2 */
+                                    within_recursive(Via, Name).
+
+migrated(Name, BornIn, LivingIn) :- name(Person, Name),         /* Rule 3 */
+                                    born_in(Person, BornLoc),
+                                    within_recursive(BornLoc, BornIn),
+                                    lives_in(Person, LivingLoc),
+                                    within_recursive(LivingLoc, LivingIn).
+
+?- migrated(Who, 'United States', 'Europe');
+/* Who = 'Lucy' */
+```
+
+Datalog queries take small steps at a time rather than Cypher and SPARQL's usage
+of SELECT.  Rules are defined and can refer to one another.  With this, complex
+queries can be built up a small piece at a time.

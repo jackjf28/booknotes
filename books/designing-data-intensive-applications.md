@@ -641,16 +641,16 @@ MATCH
 RETURN person.name
 ```
 
-The above query can be reas as:
+The above query can be read as:
 
-> Find any vertex (call it `person`) that meets _both_ of the following conditions
-> *`person` has an outgoing `BORN_IN` edge to some vertex. From that vertex, you
+1. Find any vertex (call it `person`) that meets _both_ of the following conditions
+2. *`person` has an outgoing `BORN_IN` edge to some vertex. From that vertex, you
 can follow a chain of outgoing `WITHIN` edges until eventually you reach a vertex
 of type `Location`, whose name property is equal to "United States"
-> *That same `person` vertex also has an outgoing `LIVES_IN`edge. Following 
+3. *That same `person` vertex also has an outgoing `LIVES_IN`edge. Following 
 that edge, and then a chain of outgoing `WITHIN` edges, you eventually reach 
 a vertex of type `Location`, whose `name` property is equal to "Europe".
-> For each such `person` vertex, return the `name` property.
+4. For each such `person` vertex, return the `name` property.
 
 
 

@@ -517,3 +517,95 @@ db.observations.mapReduce(
     }
 )
 ```
+
+For example, say the observations collection contains these two documents:
+
+```json
+{
+    observationTimestamp: Date.parse("Mon, 25 Dec 1995 12:34:56 GMT"),
+    family:     "Sharks",
+    species:    "Carcharodon carcharias",
+    numAnimals: 3,
+}
+{
+    observationTimestamp: Date.parse("Tue, 12 Dec 1995 16:17:18 GMT"),
+    family:     "Sharks",
+    species:    "Carcharodon taurus",
+    numAnimals: 4,
+}
+```
+
+The `map` function would be called once for each document, resulting in 
+`emit("1995-12", 3)` and `emit("1995-12, 4)`. Then the `reduce` function would
+be called with `reduce("1995-12", [3,4])` returning 7.
+
+The `map` and `reduce` functions are limited in what they're allowed to do.
+They can only use the data that is passed to them as input, so they cannot
+perform additional queries, and must not have any side effects.
+
+### Graph-Like Data Models
+
+If many-to-many relationships are very common in your data, it becomes more natural
+to start modeling your data as a graph.
+
+Graphs consist of two kinds of objects: _vertices_ (i.e. _nodes_ or _entities_)
+and _edges_ (i.e. _relationships_ or _arcs_). Some of the typical examples of
+graph data models include:
+* **Social Graphs**. Vertices are people, edges indicate who knows eachother
+* **The web graph**. Vertices are web pages, edges indicate HTML links
+* **Road or rail networks**. Vertices are junctions, and edges represent railways
+or roads between them.
+
+Usage of graphs is to provide a consistent way of storing completely different
+types of objects in a single datastore.
+
+#### Property Graphs
+
+In the property graph model, each vertex consists of:
+* A unique identifier
+* A set of outgoing edges
+* A set of incoming edges
+* A collection of properties (key-value pairs)
+
+Each edge consists of:
+* A unique identifier
+* The vertex at which the edge starts (the _tail vertex_)
+* The vertex at which the edge ends (the _head vertex_)
+* A label to describe the kind of relationship between the two vertices
+* A collection of properties (key-value pairs)
+
+You can think of a graph store as two relational tables, one for vertices
+and one for edges.
+
+Property graph using relational schema:
+```sql
+CREATE TABLE vertices (
+    vertex_id       integer PRIMARY KEY,
+    properties      json
+);
+CREATE TABLE edges (
+    edge_id         integer PRIMARY KEY,
+    tail_vertex     integer REFERENCES vertices (vertex_id),
+    head_vertex     integer REFERENCES vertices (vertex_id),
+    label           text,
+    properties      json
+);
+
+CREATE INDEX edges_tails ON edges (tail_vertex);
+CREATE INDEX edges_heads ON edges (head_vertex);
+```
+
+Important aspects of this model:
+* Any vertex can have an edge connecting it with any other vertex. No schema
+restrictions.
+* Given any vertex, you can efficiently find incoming and outgoing edges, thus
+_traverse_ the graph
+* By using different labels for different relationships, you can store several
+different kinds of information in a single graph
+
+
+
+#### The Cypher Query Language
+#### Graph Queries in SQL
+#### Triple-Stores and SPARQL
+#### The Foundation: Datalog

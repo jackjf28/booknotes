@@ -491,7 +491,7 @@ languages.
 Here's an example where you add an observation record for every animal seen
 and you want to see how many sharks you have sighted per month:
 
-```postgresql
+```sql
 SELECT date_truc('month', observation_timestamp) AS observation_month,
        sum(num_animals) AS total_animals
 FROM observations

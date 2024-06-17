@@ -603,9 +603,44 @@ _traverse_ the graph
 * By using different labels for different relationships, you can store several
 different kinds of information in a single graph
 
+The above features give graphs a great deal of flexibility for data modeling.
+For example, regional structures in different countries may be difficult to
+express in traditional relational schema, where as graphs can accomodate this
+well.
 
+Graphs are good for evolvability; as you add features to your application,
+a graph can easily be extended to accommodate changes in your application's
+data structures.
 
 #### The Cypher Query Language
+
+**Cypher** is a declarative query language for property graphs, created for the
+Neo4j graph database.
+
+The below example shows the Cypher query to insert into a graph database.
+```sql
+CREATE
+    (NAmerica:Location {name:'North America', type:'continent'}),
+    (USA:Location      {name:'United States', type:'country'}),
+    (Idhao:Location    {name:'Idaho',         type:'state'}),
+    (Lucy:Person       {name:'Lucy' }),
+    (Idaho) -[:WITHIN]->  (USA)  -[:WITHIN]-> (NAmerica),
+    (Lucy)  -[:BORN_IN]-> (Idaho)
+```
+
+An example query in Cypher would be to find all the vertices that have a `BORN_IN`
+edge to a location within the US and a `LIVING_IN` edge to a location within
+Europe, and return the `name` property for each of these vertices.
+
+Example of this query in Cypher:
+
+```sql
+MATCH
+    (person) -[:BORN_IN]->  () -[:WITHIN*0..]-> (us:Location {name:'United States'}),
+    (person) -[:LIVES_IN]-> () -[:WITHIN*0..]-> (eu:Location {name:'Europe'}),
+RETURN person.name
+```
+
 #### Graph Queries in SQL
 #### Triple-Stores and SPARQL
 #### The Foundation: Datalog

@@ -8,6 +8,11 @@
     - [Data Models and Query Languages](#data-models-and-query-languages)
         - [Relational Model Versus Document Model](#relational-model-versus-document-model)
         - [Query Languages for Data](#query-languages-for-data)
+        - [Graph-Like Data Models](#graph-like-data-models)
+    - [Storage and Retrieval](#storage-and-retrieval)
+        - [Data Structures That Power Your Database](#data-structures-that-power-your-database)
+        - [Transaction Processing or Analytics?](#transaction-processing-or-analytics)
+        - [Column-Oriented Storage](#column-oriented-storage)
 
 # Part 1.  Foundations of Data Systems
 
@@ -769,3 +774,76 @@ migrated(Name, BornIn, LivingIn) :- name(Person, Name),         /* Rule 3 */
 Datalog queries take small steps at a time rather than Cypher and SPARQL's usage
 of SELECT.  Rules are defined and can refer to one another.  With this, complex
 queries can be built up a small piece at a time.
+
+
+## Storage and Retrieval
+
+This chapter covers the question of how can we store the data that we're given,
+and how can we find it again when we're asked for it.
+
+### Data Structures That Power Your Database
+
+Consider this simple database:
+
+```bash
+db_set () {
+    echo "$1,$2" >> database
+}
+db_get () {
+    grep "^$1," database | sed -e "s/^$1,//" | tail -n 1
+}
+```
+
+These functions implement a key-value store.  The key and the value can be almost
+any value.  Every call to `db_set` appends to the end of a file.  Old values 
+aren't overwritten, you simply look at the last value for the most recent value
+(`tail -n 1` returns the last item in the collection).
+
+`db_set` has pretty good performance due to its append-only nature, many 
+databases use a similar append-only data file called a _log_.
+
+> _Log_. An append-only sequence of records. Optionally human-readable; it might
+be binary and intended only for other programs to read.
+
+Lookups have bad performance on logs at O(n).  An _index_ is needed to 
+efficiently find a value for a particular key.
+
+_Indexes_ are an _additional_ structure that are derived from the primary data.
+They usually slow down write speed, because the index needs to be updated every
+time the database is written to.
+
+_Indexes_ are an important tradeoff, though: well-chosen indexes speed up read
+queries, but slow down writes.
+
+#### Hash Indexes
+
+Key-value stores are similar to the dictionary type in many programming 
+languages, typically a hash map.
+
+A simple indexing strategy is to keep an in-memory hash map where every key is
+mapped to a byte offset in the data file.  Whenever a new key-value pair is 
+appended to the file, you update the hash map to reflect the offset of the data
+you wrote.  Looking up involves using the hash map to find the offset, seek
+the location, and read the value.
+
+How do we avoid running out of disk space in append only files?
+
+We can break the log into segments of a certain size when a segment file 
+reaches a certain size, and making subsequent writes to a new segment file.
+Then, _compaction_ can be performed. _Compaction_ means throwing away duplicate 
+keys in a log, and keeping only the most recent update for a key.
+
+Because compation makes segments smaller, segments can also be merged together 
+at the same time as performing compaction. Segments are append-only, so a new
+file is always created for the merged segment.
+
+Read requests are then updated to use the new merged segment, and old segment
+files that were merged can be deleted.
+
+Some issues to consider with this implementation:
+* File format: Binary that first encodes the string length in bytes is faster 
+and simpler to use.
+* Deleting records:
+
+### Transaction Processing or Analytics?
+### Column-Oriented Storage

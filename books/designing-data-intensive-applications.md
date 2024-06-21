@@ -843,7 +843,39 @@ files that were merged can be deleted.
 Some issues to consider with this implementation:
 * File format: Binary that first encodes the string length in bytes is faster 
 and simpler to use.
-* Deleting records:
+* Deleting records: When deleting a key-value pair, you can append a deletion
+record (_tombstone_), when log segments merge - the tombstone tells the merge
+process to delete the value for the deleted key.
+* Crash recovery: To minimize hash map index loss on system restart, store
+a snapshot of each segment hash map on disk .
+* Partially written records: Include checksums, allowing partial writes to be
+ignored.
+* Concurrency control: Common implmentation is to have one writer thread. Data 
+file segments are write-only, so they can be read concurrently by multiple 
+threads.
+
+Append-only design is good because of the following:
+* Append and merge are sequential operations and faster than random writes.
+* Concurrency/crash recovery are simpler if files are append-only.
+* Merging old segments prevents fragmentation over time.
+
+Limitations:
+* Hash table must fit in memory.
+* Range queries aren't efficient. 
+
+#### SSTables and LSM-Trees
+
+_Sorted String Tables_ (SSTables) modify the segment format: 
+* Require that the sequence of key-value pairs are sorted by key. 
+* Require that each key only appears once within each merged segment file.
+(compaction ensures this).
+
+SSTable advantages:
+* Merging is simple and efficient. Similar to mergesort.
+* No longer need to keep an index of all keys in memory.  Because the keys
+are ordered, you can instead maintain a _sparse index_ of keys. One key per
+every few KB of segment file is sufficient.
+* 
 
 ### Transaction Processing or Analytics?
 ### Column-Oriented Storage

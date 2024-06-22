@@ -1009,7 +1009,81 @@ that want to offer strong transactional semantics.
 
 #### Other Indexing Structures
 
+It is common to have _secondary indexes_.  In relational databases, you can 
+create several secondary indexes on the same table using `CREATE INDEX`, and
+are crucial for efficient joins.
+
+The main difference between primary and secondary indexes is that secondary indexes
+are not unique; i.e., there might be many rows with the same key.
+
+##### Storing values within the index
+
+The value in a key-value index can be:
+* The actual row (document,vertex)
+* A reference to the row stored elsewhere, the place where rows are stored is 
+known as a _heap file_.
+
+The heap file approach is common because it avoids duplicating data where multiple
+secondary indexes are present.
+
+_Clustered index_. Storing the indexed row directly within an index.
+
+Clustered indexes can solve the performance penalty involved with hopping from
+an index to the heap file.
+
+A compromise between clustered indexes and heap files is known as a _covering
+index_ or _index with included columns_, which stores some of the table
+columns within the index.
+
+##### Multi-column indexes
+
+Most common  type of multi-column index is a _concatenated index_, which combines
+several ields into one key by appending one column to another.
+
+A concrete example  would be a phone book, which provides an index from 
+(_lastname, first-name_) to a phone number.
+
+Multi-dimensional indexes are a general way of querying several columns at once.
+
+Here's an example where we search for all restaurants in a specific latitude 
+and longitude:
+
+```sql
+SELECT * FROM restaurants WHERE latitude  > 51.4946 AND latitude  < 51.5079
+                            AND longitude > -0.1162 AND longitude < -0.1004;
+```
+
+B-trees and LSM-tree indexes are inefficient in executing this as they cannot
+give both latitude and longitude simultaneously.
+
+##### Full-text search and fuzzy indexes
+
+Fuzzy querying allows search for _similar_ keys, such as mispelled words.
+
+Full-text search engines can allow a search for one word to be expanded to
+include synonyms, ignore grammatical variations of words, and search for occurrences
+of words near each other in the same document.
+
+##### Keeping everything in memory
+
+As RAM becomes cheaper, it becomes more feasible to keep datasets entirely in
+memory as most datasets are not _that_ big. From this has emerged the
+development of _in-memory databases_.
+
+Restarts in in-memory databases mean they need to reload their state from disk
+or over network from a replica.
+
+The performance advantage of in-memory datastures comes from avoiding overhead
+of encoding in-memory data structures in a form that can be written to disk.
+
+They also can provide data models that are difficult to implement in disk-based
+indexes.  An example of this is Redis offering a database-like interface to 
+various data structures like sets and priority queues.
+
 ### Transaction Processing or Analytics?
 
 
 ### Column-Oriented Storage
+
+Although fact tables are often over 100 columns wide, typical data warehouse
+queries only access 4 or 5 of them.

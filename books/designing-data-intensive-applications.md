@@ -875,7 +875,141 @@ SSTable advantages:
 * No longer need to keep an index of all keys in memory.  Because the keys
 are ordered, you can instead maintain a _sparse index_ of keys. One key per
 every few KB of segment file is sufficient.
-* 
+* Since reads need to scan over several key-value pairs in the requested range,
+it's possible to group those records in a block and compress before writing
+to disk.  Each entry of the sparse in-memory index then points at the start
+of the compressed block
+
+##### Constructing and maintaining SSTables
+
+We can make the storage engine work as follows:
+* When a write comes in, add to in-memory balanced tree (red-black tree). This
+tree is considered a _memtable_.
+* When the memtable reaches some threshold, write to disk as an SSTable file.
+The new file becomes the most recent database segment.
+* To read, try to find the key in the memtable, then in most recent SSTable
+file and so on.
+* Occasionally run a merge/compaction process
+
+To avoid lost writes due to a crash, keep a separate log on disk where every
+write is immediately appended.
+
+##### Making an LSM-tree out of SSTables
+
+The algorithm above is used in LevelDB and RocksDB, the _Log-Structured Merge-Tree_.
+Storage engines that are based on this principle of merging and compacting 
+sorted files are often called LSM storage engines.
+
+##### Performance optimizations
+
+In order to optimize LSM-tree algorithm key lookups, storage engines often use 
+additional _Bloom filters_.
+
+**Bloom Filter**. A memory efficient data structure for approximating the 
+contents of a set. It can tell you if a key does not appear in a database,
+thus saving unnecessary disk reads.
+
+Common options for determining when to compact and merge are _size-tiered_ and
+_leveled_ compaction.
+
+**Size-tiered**. Newer and smaller SSTables are merged into older and larger 
+SSTables.
+
+**Leveled compaction**. Key range is split into smaller SSTables and older data 
+is moved into separate "levels", allowing compaction to proceed more
+incrementally
+
+#### B-Trees
+
+_B-Trees_ are the most widely used indexing structure.
+
+They keep key-value pairs sorted by key, similar to SSTables.
+
+In addition, B-trees break the database into fixed-size _blocks_ or _pages_ (Usually
+4KB in size) and read or write one page at a time.  Each page can be identified
+using either an address or location, allowing one page to reference another.
+
+One page is considered the _root_ of the B-tree, and contains several keys and 
+references to child pages.
+
+Eventually we get down to a page containing individual keys (a _leaf page_),
+which contains the value for each key inline or contains references to 
+the pages where the value can be found.
+
+**Branching Factor**. The number of references to child pages in one page of the 
+B-tree.
+
+To update a value, search for a leaf page contianing that key, change the value
+in tha tpage, and write the page back to disk
+
+To add a new key, find the page whose range encompasses the new key and add it
+to the page.  If there's no free space, split into two half-full pages and
+the parent page is updated to reference the two new key ranges.
+
+##### Making B-trees reliable
+
+Some operations require multiple pages to be overwritten, if there is a 
+database crash, this can result in a corrupted index.
+
+B-tree implementations commonly include an additional data structure on disk
+called a _write-ahead log_ (WAL) to make databases resilient to crashes and
+restores the B-tree back to consistent state.
+
+WALs are an append-only file where every B-tree modification must be written
+before it's actually applied.
+
+Concurrency is also a concert. If muliple threads are to be used to access the
+B-tree, _latches_ (lightweight locks) are used for protection.
+
+##### B-tree optimizations
+
+* Copy-on-write schemes can be used in contrast to overwiting pages/WAL.
+* Key abbreviation to save on space
+* Sequential ordering of leaf pages to reduce seek time, growth can cause issues.
+LSM-Trees can be better for sequential reads
+* Pointers between sibling leaf pages
+
+#### Comparing B-Trees and LSM-Trees
+
+As a rule of thumb, LSM-trees are typically faster for writes, whereas 
+B-trees are faster for reads. LSM-tree reads are slower because they have
+to check several different data structures and SST files during compaction.
+
+##### Advantages of LSM-trees
+
+B-tree indexes must write every piece of data at least twice, once to the WAL,
+and once to the tree page (more if the page is split). 
+
+**Write Amplification**. One write to the database resulting in multiple writes
+to disk over the course of the database's lifetime.
+
+LSM-trees are able to sustain higher write throughput that B-trees, as sometimes
+they have lower write amplification
+
+LSM-trees also have better compression, producing smaller files on disk.
+
+They also have lower storage overhead, as they aren't page oriented and remove
+fragmentation through SSTable rewrites.
+
+##### Downsides of LSM-trees
+
+The compaction process can sometimes interfere with performance of ongoing reads
+and writes.
+
+Another issue with compaction arises at high write throughput: disk bandwidth
+is shared between the initial write (logging and flushing memtable to disk) and
+compaction threads. This issue becomes more prominent as the database gets larger.
+
+High write throughput and misconfigured compaction can result in compaction 
+lagging behind, resulting in the number of unmerged segments growing until
+we run out of disk. Explicit monitoring is needed for this scenario.
+
+A B-tree advantage is that each key exists only once, which is good for databases
+that want to offer strong transactional semantics.
+
+#### Other Indexing Structures
 
 ### Transaction Processing or Analytics?
+
+
 ### Column-Oriented Storage

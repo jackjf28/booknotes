@@ -1076,14 +1076,70 @@ or over network from a replica.
 The performance advantage of in-memory datastures comes from avoiding overhead
 of encoding in-memory data structures in a form that can be written to disk.
 
-They also can provide data models that are difficult to implement in disk-based
-indexes.  An example of this is Redis offering a database-like interface to 
-various data structures like sets and priority queues.
+Products such as VoltDB, MemSQL, and Oracle TimesTen are in-memory databases.
+Redis and Couchbase provide weak durability by writing to disk asynchronously.
+
+In-memory databases also can provide data models that are difficult to implement 
+in disk-based indexes.  An example of this is Redis offering a database-like 
+interface to various data structures like sets and priority queues.
 
 ### Transaction Processing or Analytics?
 
+Interactive processes between user and application constitute an access
+pattern in databases known as _online transaction processing_ (OLTP).
+
+_Data analytics_ have a very different access pattern, scanning over a huge
+number of records, only reading a few columns per records, and 
+calculating aggregate statistics rather than returning raw data.
+
+Data analytic queries create a different pattern from OLTP, called _online
+analytic processing_ (OLAP).
+
+In the late 1980s and early 1990s, there was a trend for companies to stop using 
+their  OLTP systems for analytics purposes, and run the analytics on a separate
+database instead.  This separate database was called a _data warehouse_.
+
+#### Data Warehousing
+
+A _data warehouse_ is a separate database that analyst can query without 
+affecting OLTP operations.  It contains a read-only copy of the data in all 
+various OLTP systems in the company.  Data is extractef rom OLTP databases,
+transformed into an analysis-friendly schema, cleaned up, and then loaded into
+a data warehouse.
+
+The process of getting data into the warehouse is known as _Extract-Transform-Load_
+(ETL).
+
+An advantage of using a separate data warehouse, rather than querying OLTP
+systems, is that the warehouse can be optimized for analytics.
+
+Data warehouses are commonly relational, but the internals can be much different
+than OLTP systems.
+
+Many data warehouses are used in a fairly formulaic style known as a _star schema_.
+
+At the center of the star schema is a _fact table_.  Each row of the fact table
+represents an event that occured at a particular time.  o
+
+Some of the fact table columns are attributes, other columns are foreign key 
+references to other tables, called _dimension tables_.
+
+_Dimensions_ represent the _who, what, where, when, how, and why_ of the event.
+
+A variation of this template is the _snowflake schema_, where dimensions are
+further broken down into sub dimensions.  They are more normalized than star
+schemas, but star schemas are usually preferred because they are easier to 
+work with.
+
+In a typical data warehouse, tables are often very wide.  Fact tables often have
+over 100 columns.  
 
 ### Column-Oriented Storage
 
 Although fact tables are often over 100 columns wide, typical data warehouse
 queries only access 4 or 5 of them.
+
+_Column-oriented storage_'s idea is don't store all the values from one row 
+together, but store all the values from each column together instead.  If each
+column is stored in a separate file, a query only needs to read and parse those
+columns that are used in that query, which can save a lot of work.

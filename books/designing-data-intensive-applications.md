@@ -13,6 +13,9 @@
         - [Data Structures That Power Your Database](#data-structures-that-power-your-database)
         - [Transaction Processing or Analytics?](#transaction-processing-or-analytics)
         - [Column-Oriented Storage](#column-oriented-storage)
+    - [Encoding and Evolution](#encoding-and-evolution)
+        - [Formats for Encoding Data](#formats-for-encoding-data)
+        - [Modes of Dataflow](#modes-of-dataflow)
 
 # Part 1.  Foundations of Data Systems
 
@@ -1137,9 +1140,92 @@ over 100 columns.
 ### Column-Oriented Storage
 
 Although fact tables are often over 100 columns wide, typical data warehouse
-queries only access 4 or 5 of them.
+queries only access 4 or 5 of them. 
+
+Row-oriented storage engines will load all of the rows from disk to memory,
+parse them, and filter out those that don't meet the required conditions.
+This can take a long time.
 
 _Column-oriented storage_'s idea is don't store all the values from one row 
 together, but store all the values from each column together instead.  If each
 column is stored in a separate file, a query only needs to read and parse those
 columns that are used in that query, which can save a lot of work.
+
+The column-oritented storage layout relies on each column file containing the
+rows in the same order.  To reassemble an entire row, you can take the nth entry
+from each of the individual column files and put them together to form the nth
+row of the table.
+
+#### Column Compression
+
+Demands on disk throughput can be further reduces by compressing data.
+
+One technique that is used in warehouses is _bitmap encoding_. Often, the number
+of distinct values in a column is small compared to the number of rows.  We
+can take a column with _n_ distinct values and turn it into _n_ separate bitmaps,
+those bitmaps can be stored with one bit per row.
+
+Bitmaps can additionally be _run-length encoded_ if the number of distinct values
+is large.
+
+One example of bitmap usage:
+
+```sql
+WHERE product_sk in (30, 68, 69);
+```
+Load the three bitmaps for product_sk = 30, 68, and 69, and calculate the bitwise
+OR of the three bitmaps.
+
+##### Memory bandwidth and vectorized processing
+
+A big bottleneck for warehouse queries is the bandwidth from getting data from
+disk to memory. 
+
+Besides reducing the volume of data needed to be loaded from disk, column-oriented
+storage layouts are good for efficient usage of CPU cycles. 
+
+#### Sort Order in Column Storage
+
+It doesn't necessarily matter which order the rows are stored. However, we can choose
+to impose an order, similar to SSTables, and use this as an indexing mechanism.
+
+The data needs to be sorted an entire row at a time on one column, a second column 
+can also be used to determine a sort order of any rows with the same value in
+the first column.
+
+Sorting can also help with compression, and enable run-length encoding.
+
+A clever extension of this idea is to store the same data sorted in several 
+different ways as data needs to be replicated to multiple machines anyways.
+You can then use the version of the data that best fits your query.
+
+#### Writing to Column-Oriented Storage
+
+LSM-trees are good for writing to column-oriented storage.  All writes first go
+to an in-memory store, where they are added to a sorted structure and prepped
+for writing to disk. It doesn't matter if the in-memory store is row or column
+oriented.
+
+> The above is essentially what Vertica does.
+
+#### Aggregation: Data Cubes and Materialized Views.o
+
+**Materialized aggregates**. Data warehouse queries often involve an aggregate 
+function, such as `COUNT`, `SUM`, `AVG`, `MIN`, or `MAX` in SQL.  If the same
+aggregates are used by many different queries, it can be wasteful to run the 
+queries every time.
+
+_Matierialized view_ is a way of creating a cache for these calculations and is
+an acutal copy of the query results, written to disk.
+
+A common special case of a materialized view is known as a _data cube_ or _OLAP cube_.
+It is a grid of aggregates grouped by different dimensions. The advantage of a 
+materialized data cube is that certain queries become very fast as they have 
+effectively been precomputed.
+
+A disadvantage is that a data cube doesn't have the same flexibility as querying
+raw data.
+
+## Encoding and Evolution
+### Formats for Encoding Data
+### Modes of Dataflow

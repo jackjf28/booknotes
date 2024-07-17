@@ -16,6 +16,12 @@
     - [Encoding and Evolution](#encoding-and-evolution)
         - [Formats for Encoding Data](#formats-for-encoding-data)
         - [Modes of Dataflow](#modes-of-dataflow)
+- [Part 2: Distributed Data](#part-2-distributed-data)
+    - [Replication](#replication)
+        - [Leaders and Followers](#leaders-and-followers)
+        - [Problems with Replication Lag](#problems-with-replication-lag)
+        - [Multi-Leader Replication](#multi-leader-replication)
+        - [Leaderless Replication](#leaderless-replication)
 
 # Part 1.  Foundations of Data Systems
 
@@ -1227,5 +1233,268 @@ A disadvantage is that a data cube doesn't have the same flexibility as querying
 raw data.
 
 ## Encoding and Evolution
+
+Applications change over time, when a data format/schema changes - correspoding changes
+to application code often need to happen.
+
+* Server-side applications may want to have _rolling upgrades_, deploying the new
+version to a few nodes at a time
+* Client-side applications are at the mercy of the user, who may not install the
+update for some time.
+
+This means old and new versions of code/data formats may coexist, compatibility
+needs to be maintained in both directions
+
+* **Backward compatibility**. Newer code can read data that was written by older
+code.
+* **Forward compatibility**. Older code can read data written by newer code.
+
 ### Formats for Encoding Data
+
+Programs manage data in usually the following ways:
+
+1. In memory, i.e. objects, structs, lists, arrays, etc.
+2. Writing data to a file/sending over the network requires the data to be
+encoded in a sequence of bytes, i.e. JSON.
+
+Translation between the two above representations is called _encoding_ (aka 
+_serialization_). The reverse is called _decoding_ (aka _deserialization_).
+
+#### Language-Specific Formats
+
+Many programming languages have built-in support for encoding in-memory objects
+into byte sequences.  Java has `java.io.Serializable`, Python has `pickle` and
+so on.
+
+Convenience aside, these built-in encodings are tied to a specific language, making
+it difficult to read in another language.  Also, it can pose a security risk as
+the decode process needs to be able to instantiate arbitrary classes; if an attacker
+gets the application to decode an arbitrary byte sequence, they can also 
+instantiate arbitrary classes and remotely execute code.
+
+##### JSON, XML, and Binary Variants
+
+Standardized encodings can be written/read by many programming languages.
+
+Despite flaws, such as ambiguity in number encoding, lack of binary string support,
+and optional/lack of schema support, these three formats are good enough for many 
+purposes.
+
+###### Biary encoding
+
+In organizations there's less pressure to use encoding like JSON, for example
+you could use an encoding that is more compact/faster to parse.
+
+JSON and XML use a lot of space compared to binary formats, leading to development
+of JSON binary encodings like MessagePack, BSON, BJSON, etc. and XML variants like
+WBXML and Fast Infoset.
+
+##### Thrift and Protocol Buffers
+
+Apache Thrift and Potocol Buffers (protobuf) are binary encoding libraries 
+reliant on a schema for encoded data.o
+
+Here's an example schema in the Thrift interface definition language (IDL):
+```
+struct Person {
+    1: required string          userName,
+    2: optional i64             farvoriteNumber,
+    3: optional list<string>    interests
+}
+```
+
+The integers are considered field tags and are referenced in the encoded
+document to point back to the schema definnition, in other words - it is a compact
+way of saying what field we're talking about.
+
+Thrift also has two encoding formats, _CompactProtocol_ and _BinaryProtocol_.  
+As the name implies, Compact protocol can encode the same data in a much smaller
+size by packing the field type and tag number into a single byte.
+
+Protocol Buffers are similar to the _CompactProtocol_ above, but does bit packing
+a bit differently.
+
+###### Field tags and schema evolution
+
+Schemas inevitably change over time, how do Thrift and Protocol Buffers handle
+schema changes while maintaining forward and backward compatibility?
+
+In the context of these two encodings, If a field value is not set, it is omitted 
+from the encoded record.  You can also change the name of a field in the schema,
+since the encoded data only references the field tag.
+
+You can add new fields to the schema, provided each new field gets a new tag 
+number.  If old code reads data written by new code, including the new field it
+doesn't recognize, it ignores the field.  This maintains forward compatibility;
+old code can read records written by new code.
+
+For backward compatibility, as long as each field has a unique tag, new code can
+always read old data.  The only detail is if you create a new field, it cannot
+be required because that check would fail if new code read data written by old code, 
+because the old code will not have written the new field that you added.
+
+Removing a field is similar to adding a field: only optional fields can be removed
+and you can never use the same tag number again.
+
+###### Datatypes and schema evolution
+
+Changing datatypes of a field can also pose the risk of precision loss in types
+like converting a 64-bit int to a 32-bit int.
+
+##### Avro
+
+Apache Avro is another binary encoding format that uses schema like previously mentioned.
+
+Example:
+
+```
+record Person {
+    string                  userName;
+    union { null, long }    favoriteNumber = null;
+    array<string>           interests;
+}
+```
+
+One difference here is the lack of tag numbers, the encoding consists of values
+concatenated together. To parse, you go through the fields in the order they
+appear in the schema and use the schema to tell you the datatype.  It can only be
+decoded correctly if the code reading the data is using the _exact same schema_
+as the code that wrote the data.
+
+###### The writer's schema and the reader's schema
+
+Avro encodes the data using whatever schema version it knows about, that
+schema may be compiled into the application.  This is known as the _writer's schema_.
+
+When an application wants to decode some data, it expects the data to be in some schema,
+which is known as the _reader's schema_.
+
+The key idea with Avro is that the reader and writer schemas don't have to be the
+same - only compatible.  When data is decoded(read), the Avro library resolves the 
+differences by looking at the writer's schema and reader's schema side by side
+and translating the data from the writer's schema into the reader's schema.
+
+The two schemas are resolved by matching up fields by the field name.  If 
+a field in the writer's schema isn't in the reader's schema, it is ignored. If
+the code reading the data expects some field, but the writer's schema doesn't contain
+a field of that name, it is filled in with a default value declared in the reader's
+schema.
+
+###### Schema evolution rules
+
+With Avro, forward compatibility means you can have a new version of the schema
+as a writer and an older version of the schema as reader.  Conversely, backward 
+compatibility means you can have a new version of the schema as a reader and an
+older version as writer.
+
+To maintain this, you may only add/remove fields that have a default value
+
+###### But what is the writer schema?
+
+We can't just include the entire schema with every record as it negates the storage
+savings from using Avro in the first place
+
+Use cases for Avro:
+* Large file with lots of records encoded with the same schema
+* Database with individually written records, include a version number of the schema
+version that was used.
+* Sending records over network, two processes can negotioate schema version to use
+for the connection lifetime.
+
+###### Dynamically generated schemas
+
+Avro can easily generate schemas from the relational schema and encode database contents
+using that schema.
+
 ### Modes of Dataflow
+
+This section covers some of the most common ways how data flows between processes
+* via databases
+* via service calls
+* via asynchronous message passing
+
+#### Dataflow Through Databases
+
+Forward and backward compatibility is important in databases as it is common for
+several different processes to access a database at the same time.  In conjunction 
+with rolling upgrades on a service, some processes will run newer code while
+some run older code.
+
+To further explore this - a value in a database may be written by a newer version
+of code while the same value is read by the older version of the code, so forward
+compatibility is required.
+
+Also, say a field is added to the record schema, and the new code writes a value
+for that field.  And an older value reads the record, updates it, and writes back.
+In this situation, the desirable outcome is that the old code leaves the new field intact
+even though it couldn't be interpreted.
+
+#### Dataflow Through Services: REST and RPC
+
+Communication over a network is arranged commonly with two roles: _clients_ and
+_servers_. The servers expose an API over the network, and the clients can connect
+to the servers to make requests to the API. This API is known as a service.
+
+Servers can be clients to another service, such as a database.  This approach
+is commonly used to decompose large applications into smaller services by
+area of functionality.  This way of building applications has been called a 
+_service-oriented architecture_ (SOA), more recently known as _microservices 
+architecture_.
+
+When HTTP is used as the underlying protocol for talking to the service, it is
+called a _web service_.
+
+Two popular approaches to web services are REST and SOAP.
+
+REST is not a protocol, rather a design philosiphy building upon the principles
+of HTTP.  It emphasizes simple data formats, using URLS for identifying resources
+and using HTTP features for cache control, authentication, and content type
+negotiation.
+
+SOAP is an XML-based protocol for making network API requests.  It comes with a
+multitude of related standards and avoids using most HTTP features.
+
+##### Current directions for RPC
+
+The main focus of RPC is on request between services owned by the same organization,
+typically within the same datacenter.  Whereas REST is the predominant style for
+public APIs.
+
+#### Message-Passing Dataflow
+
+_Asynchronous message-passing systems_ are somewhere between RPC and databases.
+They are similar to RPIC in that a client's request (message) is delivered to another 
+process with low latency.  They're similar to databases in that the message is not sent via 
+a direct network connection, but goes via an indermediary called a _message broker_,
+which stores the message temporarily.
+
+##### Message Brokers
+
+In general, message brokers are used as follows: one process sends a message to a named
+_queue_ or _topic_, and the broker ensures that the message is delivered to one 
+or more consumers or subscribers to that queue or topic.  
+
+A topic provides only one-way dataflow.  However, a consumer may itself publish 
+messages to another topic, or to a reply queue that is consumed by the sender
+of the original message.
+
+##### Distributed actor frameworks
+
+The _actor model_ is a programming model for concurrency in a single process.
+Instead of dealing directly with threads, logic is encapsulated in _actors_. 
+Each actor typically represents one client or entity, it may have some local state, 
+and it communicates with other actors by sending and receiving async messages.
+
+In _distributed actor frameworks_, this programming model is used to scale an application
+across multiple nodes.  The same message-passing mechanism is used, no matter 
+whether the sender/recipient is on the same or different nodes.
+
+Location transparency works better in the actor model than in RPC, because the actor 
+model assumes messages may be lost.
+
+# Part 2: Distributed Data
+## Replication
+### Leaders and Followers
+### Problems with Replication Lag
+### Multi-Leader Replication
+### Leaderless Replication

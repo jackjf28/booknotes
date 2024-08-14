@@ -1493,8 +1493,93 @@ Location transparency works better in the actor model than in RPC, because the a
 model assumes messages may be lost.
 
 # Part 2: Distributed Data
+
+There are many reasons as to why you would want to distribute a database:
+
+* **Scalability** - if the data volume or read and write load grows larger than
+what a single machine can handle, you can spread across multiple machines.
+* **Fault tolerance/high availability** - Continued functionality of a service
+even when one machine is down.
+* **Latency** - Speed up reads and writes from users across the world by having
+servers in various locations near your users.
+
+### Scaling to Higher Load
+
+The simplest approach is to buy a more powerful machine (_scaling up_) to 
+scale to a higher load.  This is a _shared-memory architecture_.
+
+The issue with this approach is that the cost to performance ratio is not
+linear.
+
+Another approach is the _shared-disk architecture_, which uses several
+machines with independent CPUs and RAM, but stores data on an array of disks
+that is shared between machines.  Commonly this is used for some data
+warehousing workloads.
+
+#### Shared-Nothing Architectures
+
+_Shared-nothing architectures_ (i.e. _horizontal scaling_/_scaling out_) entail
+that each machine running the DB software is called a _node_. Each node uses
+its CPUs, RAM, and disks independently.  Coordination between nodse is done on
+the software level.
+
+Shared-nothing architectures require the most caution from the engineer as
+there are constraints and trade offs.
+
+#### Replication Versus Partitioning
+
+There are two common ways data is distributed across multiple nodes:
+
+* **Replication** - Keeping a copy of the same data on several different nodes,
+potentially in different locations. Replication provides redundancy: if some
+nodes are unavailable, the data can still be served from the remaining nodes.
+Replication can also improve performance.
+
+* **Partitioning** - Splitting a big database into smaller subsets so that
+different partitions can be assigned to different nodes (i.e. _sharding_).
+
 ## Replication
+
+_Replication_ means keeping a copy of the same data on multiple machines that 
+are connected via a network.
+
+Replication is easy if your data doesn't change over time, you just need to
+copy the data to every node once.  The difficulty of replication lies in 
+handling changes to replicated data.
+
+There are three popular algorithms for replicating changes between nodes:
+
+* **single-leader**
+* **multi-leader**
+* **leaderless**
+
+There are many trade-offs to ocnsider with replication: for example, whether to
+use synchronous or asynchronous replication, and how to handle failed replicas.
+
 ### Leaders and Followers
+
+The most common solution for database writes being processed by every replica
+is _leader-based replication_, which works as follows:
+
+1. One of the replicas is the _leader_.  Writes must be sent to the leader, 
+which first writes the new data to its local storage.
+
+2. The other replicas (_followers_) receives data from the leader when a new
+write passes through the leader and updates its local copy of the database
+accordingly, by applying the writes in the same order they were processed
+on the leader.
+
+3. When a client wants to read from the database, it can query either the leader
+or any of the followers. Writes are only accepted on the leader.
+
+This mode of replication is built-in to many RDBMSs, like PostgreSQL (>=v9.0),
+MySQL, Oracle Data Guard, and SQL Server's AlwaysOn Availability Groups. Some
+NoSQL databases that have this include MongoDB, RethinkDB, and Espresso.
+Distributed messages brokers use it as well: Kafka and RabbitMQ highly available
+queues.
+
+#### Synchronous Versus Asynchronous Replication
+
 ### Problems with Replication Lag
 ### Multi-Leader Replication
 ### Leaderless Replication

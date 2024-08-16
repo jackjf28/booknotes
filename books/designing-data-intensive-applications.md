@@ -1580,6 +1580,97 @@ queues.
 
 #### Synchronous Versus Asynchronous Replication
 
+An important detail of a replicated system is whether the replication 
+happens _synchronously_ or _asynchronously_.  
+
+Normally replication is quite fast, but there's no guarentee of how long it
+might take.  There are times where followers might fall behind a leader by
+several minutes (a follower is recovering from a failure , network issues, 
+etc.).
+
+Sychronous replication guarentees that the follower will have an up-to-date
+copy of the data consistent with the leader.  The downside is that if the 
+follower doesn't respond (network crash, nuclear explosion), the write 
+cannot be processed.  The leader blocks all writes until the replica is 
+available again.
+
+All followers being synchronous is impractical - usually enabling synchronous
+replication means _one_ of the followers is synchronous and the others are 
+async. If the sync follower fails, one of the async nodes is made sync,
+guarenteeing that you have two up-to-date copies of the data on at least
+two nodes (aka _semi-synchronous).
+
+Often, leader-based replication is completely asynchronous, so if the leader
+fails and cannot recover, any writes not replicated are lost - meaning that
+a write is not guarenteed to be durable.
+
+Research on Replication
+> It can be a serious problem for asynchronously replicated systems to lose
+> data if the leader fails, so researches have continued investigating
+> replication methods that do not lose data bust still provide good performance
+> and availability.
+>
+> _Chain replication_ is a variant of synchronous replication that has been 
+> successfully implemented in a few systems such as Microsoft Azure Storage.
+
+#### Setting Up New Followers
+
+The process for setting up new followers looks like this:
+
+1. Take a consistent snapshot of the leader's database
+2. Copy snapshot to the new follower node
+3. Follower connects to the leader and requests all data changes that occurred
+since the snapshot was taken.  The exact position in the leader's replication
+log is required. It's called the _log sequence number_ in PostgreSQL, and the
+_binlog coordinates_ in MySQL.
+4. When the follower processed the backlog of data changes since the snapshot,
+it has _caught up_ and can process changes from the leader as they happen.
+
+#### Handling Node Outages
+
+The goal is to keep the system as a whole running despite individual node 
+failures, and keep the impace of node outages small.
+
+##### Follower failure: Catch-up recovery
+
+On local disk each follower keeps a log of data changes from the leader.  If it
+crashes and restarts, it uses this to recover to its last known transaction 
+before the fault occurred.  Then call the leader and request all changes since
+the outage.
+
+##### Leader failure: Failover
+
+In this scenario, one of the followers needs to be promoted to leader and 
+can be done for manually or automatically.
+
+Automatic failover process:
+
+1. _Determining that the leader failed_, one option is to set a timeout, if 
+a node doesn't respond in a set time interval, its assumed dead
+2. _Choosing a new leader_, election process
+3. _Reconfiguring the system to use the new leader_, clients now need to send
+their writes to the new leader
+
+Possible failover problems:
+
+* New leader may not have received all writes from the old leader before it
+failed, common solution if the old leader comes back is for old leader's 
+unreplicated writes be discarded
+* Discarding writes is dangerous if other storage systems outside of the db
+need to be coordingated wiwth the database contents.
+* Two nodes may both think they're the leader, there are mechanisms to shut
+down one node if two leaders are detected.
+* Determining the timeout when a leader is declared dead
+
+#### Implementation of Replication Logs
+
+How does leader-based replication work under the hood? Several different
+replication methods are used in practice.
+
+##### Statement-based replication
+
+
+
 ### Problems with Replication Lag
 ### Multi-Leader Replication
 ### Leaderless Replication
